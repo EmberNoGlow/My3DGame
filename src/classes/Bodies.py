@@ -1,5 +1,5 @@
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import NodePath, Vec4, DirectionalLight, AmbientLight, CollisionNode, CollisionSphere, CollisionTraverser, CollisionHandlerPusher, BitMask32
+from panda3d.core import NodePath, Vec4, Vec3, DirectionalLight, AmbientLight, CollisionNode, CollisionSphere, CollisionTraverser, CollisionHandlerPusher, BitMask32
 from direct.showbase.ShowBaseGlobal import globalClock
 from panda3d.bullet import BulletCharacterControllerNode, BulletWorld, BulletCapsuleShape
 from direct.task import Task
@@ -8,26 +8,37 @@ from src.classes.Nodes import SceneObject
 
 class CharacterBody(SceneObject):
     def __init__(self, node_path: NodePath, world: BulletWorld, base: ShowBase):
+        # Initialize the SceneObject wrapper around the model node
         super().__init__(node_path)
 
-        # Physics setup
+        # Save references
         self.world = world
         self.base = base
 
-        # Character controller setup
+        # Character controller (physics) setup:
+        # create the Bullet character controller and attach it into the scene graph under base.render
         self.controller = BulletCharacterControllerNode(
             BulletCapsuleShape(0.5, 1.7, 1),  # radius, height, axis
             0.4,  # step height
             "character"
         )
-        self.controller_node = self.attachNewNode(self.controller)
+
+        # IMPORTANT: put the controller node into the scene graph (under render),
+        # not as a child of the model. The controller is what the physics world moves.
+        self.controller_node = self.base.render.attachNewNode(self.controller)
         self.controller_node.setPos(0, 0, 5)  # Start above ground
         self.controller_node.setCollideMask(BitMask32.allOn())
 
-        # Add to physics world
+        # Add the controller to the physics world
         self.world.attachCharacter(self.controller_node.node())
 
-        # Input setup
+        # Reparent the visual model to the controller node so the visual follows the physics
+        # (loader.loadModel returns an unparented NodePath; if it's never parented to render it won't be visible)
+        node_path.reparentTo(self.controller_node)
+        # make sure the model sits at the controller origin
+        node_path.setPos(0, 0, 0)
+
+        # Input handling state
         self.accepted_keys = {
             'forward': False,
             'backward': False,
@@ -38,16 +49,21 @@ class CharacterBody(SceneObject):
 
         # Movement parameters
         self.walk_speed = 5.0
+        self.delta_speed = 15.0
         self.run_speed = 10.0
         self.jump_force = 8.0
         self.current_speed = self.walk_speed
+        self.velocity = Vec3(0.0,0.0,0.0)
         self.gravity = -9.81
 
-        # Setup input handling
+        # Setup input handling and update task
         self.setup_input()
-
-        # Add update task
         self.base.taskMgr.add(self.update, "character_update")
+
+    # Override set_position_vec3 so callers (e.g. main.py) move the physics controller
+    def set_position_vec3(self, pos: vec3):
+        # Keep coordinate conversion consistent with SceneObject (X,Y,Z -> Panda X,Z,Y)
+        self.controller_node.setPos(pos.x, pos.z, pos.y)
 
     def setup_input(self):
         """Set up keyboard input handling"""
@@ -82,12 +98,10 @@ class CharacterBody(SceneObject):
         self.current_speed = self.walk_speed
 
     def update(self, task):
-        """Update character state each frame"""
         dt = globalClock.getDt()
 
-        # Calculate movement direction
+        # Build move_dir in your vec3 space:
         move_dir = vec3(0, 0, 0)
-
         if self.accepted_keys['forward']:
             move_dir.z -= 1
         if self.accepted_keys['backward']:
@@ -96,26 +110,44 @@ class CharacterBody(SceneObject):
             move_dir.x -= 1
         if self.accepted_keys['right']:
             move_dir.x += 1
-            
 
-        # Normalize and apply speed
         if move_dir.length() > 0:
-            move_dir.normalize()
-            move_dir *= self.current_speed * dt
+            move_dir = move_dir.normalize()
+            # Convert to Panda coordinates. Based on set_position_vec3 you used (x, z, y),
+            # convert vec3(x,y,z) -> Panda Vec3(x, z, y). Adjust if your vec3 has different axes.
+            panda_move = Vec3(move_dir.x, move_dir.z, move_dir.y) * (self.current_speed * dt * self.delta_speed)
+            # setLinearMovement stores movement for the next physics step
+            self.controller_node.node().setLinearMovement(panda_move, True)
+        else:
+            # stop horizontal movement (optional)
+            self.controller_node.node().setLinearMovement(Vec3(0, 0, 0), True)
 
-            # Apply movement to character controller
-            self.controller_node.node().setLinearMovement(move_dir.to_panda(), True)
-
-        # Handle jumping
+        # Jump (Panda uses Z-up so z component is vertical)
         if self.accepted_keys['jump'] and self.controller_node.node().isOnGround():
-            self.controller_node.node().setLinearMovement(vec3(0, 0, self.jump_force).to_panda(), True)
+            jump_vec = Vec3(0, 0, self.jump_force)
+            self.controller_node.node().setLinearMovement(jump_vec, True)
+
+        self.controller_node.node().setGravity(0)
+
+        # --- CRITICAL: step the physics world so the controller is moved ---
+        # You should call this every frame (usually once per-frame from your main loop).
+        # The params below are typical: substeps & fixed timestep. Adjust to your app.
+        self.world.doPhysics(dt, 10, 1.0/180.0)
+
+        # Debug prints (remove later)
+        # prints controller world position so you can see movement
+        print("controller pos:", self.controller_node.getPos(self.base.render))
+
 
         return Task.cont
 
     def cleanup(self):
         """Clean up resources"""
         # Remove from physics world
-        self.world.removeCharacter(self.controller_node.node())
+        try:
+            self.world.removeCharacter(self.controller_node.node())
+        except Exception:
+            pass
 
         # Remove input handlers
         self.base.ignoreAll()
@@ -123,5 +155,16 @@ class CharacterBody(SceneObject):
         # Remove update task
         self.base.taskMgr.remove("character_update")
 
-        # Clean up node
+        # Detach visuals and controller
+        try:
+            # unparent model first to avoid orphan NodePaths in case of reuse
+            self.detach_node()
+        except Exception:
+            pass
+
+        try:
+            self.controller_node.removeNode()
+        except Exception:
+            pass
+
         super().cleanup()

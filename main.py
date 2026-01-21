@@ -35,6 +35,7 @@ class MyApp(ShowBase):
         self.world.setGravity(Vec3(0, 0, -9.81))
 
         # Create character
+        
         self.character = CharacterBody(
             self.loader.loadModel("assets/models/boxes/box.obj"),
             self.world,
