@@ -32,18 +32,17 @@ class MyApp(ShowBase):
 
         # Setup physics world
         self.world = BulletWorld()
-        self.world.setGravity(Vec3(0, 0, -9.81))
 
         # Create character
-        
         self.character = CharacterBody(
-            self.loader.loadModel("assets/models/boxes/box.obj"),
+            self.loader.loadModel("assets/models/character/untitled.obj"),
             self.world,
             self
         )
 
         # Position character
-        self.character.set_position_vec3(vec3(0, 0, 0))
+        self.character.set_position_vec3(vec3(0, -2, 0))
+        self.character.set_scale_vec3(vec3(2,2,2))
 
 
         self.disableMouse()

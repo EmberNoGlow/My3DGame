@@ -1,6 +1,36 @@
 import numpy as np
 from panda3d.core import Vec3
 
+
+
+def lerp_angle(current_angle, target_angle, damping_factor, delta_time):
+    diff = target_angle - current_angle
+    
+    while diff > 180:
+        diff -= 360
+    while diff < -180:
+        diff += 360
+        
+    step = diff * damping_factor * delta_time
+    
+    new_angle = current_angle + step
+    
+    new_angle = new_angle % 360
+    if new_angle < 0:
+        new_angle += 360
+        
+    return new_angle
+
+
+
+
+
+
+
+
+
+
+
 class vec3:
     def __init__(self, x: float, y: float, z: float):
         self.x = x

@@ -3,8 +3,9 @@ from panda3d.core import NodePath, Vec4, Vec3, DirectionalLight, AmbientLight, C
 from direct.showbase.ShowBaseGlobal import globalClock
 from panda3d.bullet import BulletCharacterControllerNode, BulletWorld, BulletCapsuleShape
 from direct.task import Task
-from src.classes.Math import vec3
+from src.classes.Math import vec3, lerp_angle
 from src.classes.Nodes import SceneObject
+import numpy as np
 
 class CharacterBody(SceneObject):
     def __init__(self, node_path: NodePath, world: BulletWorld, base: ShowBase):
@@ -14,6 +15,10 @@ class CharacterBody(SceneObject):
         # Save references
         self.world = world
         self.base = base
+
+        self.current_rotation_y = 0
+        self.target_rotation_y = 0
+
 
         # Character controller (physics) setup:
         # create the Bullet character controller and attach it into the scene graph under base.render
@@ -64,6 +69,9 @@ class CharacterBody(SceneObject):
     def set_position_vec3(self, pos: vec3):
         # Keep coordinate conversion consistent with SceneObject (X,Y,Z -> Panda X,Z,Y)
         self.controller_node.setPos(pos.x, pos.z, pos.y)
+    
+    def set_scale_vec3(self, scale: vec3):
+        self.controller_node.setScale(scale.x, scale.z, scale.y)
 
     def setup_input(self):
         """Set up keyboard input handling"""
@@ -103,15 +111,21 @@ class CharacterBody(SceneObject):
         # Build move_dir in your vec3 space:
         move_dir = vec3(0, 0, 0)
         if self.accepted_keys['forward']:
-            move_dir.z -= 1
-        if self.accepted_keys['backward']:
             move_dir.z += 1
+        if self.accepted_keys['backward']:
+            move_dir.z -= 1
         if self.accepted_keys['left']:
             move_dir.x -= 1
         if self.accepted_keys['right']:
             move_dir.x += 1
 
+
+        smooth_rot = lerp_angle(self.current_rotation_y,self.target_rotation_y,10,dt)
+        self.set_rotation_vec3(vec3(90,smooth_rot,0))
+
+
         if move_dir.length() > 0:
+            self.target_rotation_y = np.rad2deg( np.arctan2(-move_dir.x, move_dir.z) )
             move_dir = move_dir.normalize()
             # Convert to Panda coordinates. Based on set_position_vec3 you used (x, z, y),
             # convert vec3(x,y,z) -> Panda Vec3(x, z, y). Adjust if your vec3 has different axes.
@@ -128,15 +142,9 @@ class CharacterBody(SceneObject):
             self.controller_node.node().setLinearMovement(jump_vec, True)
 
         self.controller_node.node().setGravity(0)
-
-        # --- CRITICAL: step the physics world so the controller is moved ---
-        # You should call this every frame (usually once per-frame from your main loop).
-        # The params below are typical: substeps & fixed timestep. Adjust to your app.
         self.world.doPhysics(dt, 10, 1.0/180.0)
 
-        # Debug prints (remove later)
-        # prints controller world position so you can see movement
-        print("controller pos:", self.controller_node.getPos(self.base.render))
+        self.current_rotation_y = smooth_rot
 
 
         return Task.cont

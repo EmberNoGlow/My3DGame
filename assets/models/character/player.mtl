@@ -1,0 +1,27 @@
+# Blender MTL File: 'None'
+# Material Count: 2
+
+newmtl MI_Ranger
+Ns 225.000000
+Ka 1.000000 1.000000 1.000000
+Kd 0.086928 0.800016 0.686985
+Ks 0.500000 0.500000 0.500000
+Ke 0.0 0.0 0.0
+Ni 1.450000
+d 1.000000
+illum 2
+map_Bump -bm 0.140017 C:\\Dropbox\\Work\\Blender\\_FreeModels\\_Unfinished\\Clothing Kit _ Fantasy\\Modular Character Outfits - Fantasy\\Modular Character Outfits - Fantasy[Source]\\Ranger\\T_Ranger_Normal.png
+map_Kd C:\\Dropbox\\Work\\Blender\\_FreeModels\\_Unfinished\\Clothing Kit _ Fantasy\\Modular Character Outfits - Fantasy\\Modular Character Outfits - Fantasy[Source]\\Ranger\\T_Ranger_BaseColor.png
+
+newmtl MI_Regular_Male
+Ns 78.689985
+Ka 1.000000 1.000000 1.000000
+Kd 0.549414 0.274671 0.150046
+Ks 0.500000 0.500000 0.500000
+Ke 0.0 0.0 0.0
+Ni 1.450000
+d 1.000000
+illum 2
+map_Bump -bm 0.140017 C:\\Dropbox\\Work\\Blender\\_FreeModels\\_Unfinished\\Clothing Kit _ Fantasy\\Modular Character Outfits - Fantasy\\Modular Character Outfits - Fantasy[Source]\\Ranger\\Base Chars\\T_Regular_Male_Normal.png
+map_Kd C:\\Dropbox\\Work\\Blender\\_FreeModels\\_Unfinished\\Clothing Kit _ Fantasy\\Modular Character Outfits - Fantasy\\Modular Character Outfits - Fantasy[Source]\\Ranger\\Base Chars\\T_Regular_Male_Dark_BaseColor.png
+map_Ns C:\\Dropbox\\Work\\Blender\\_FreeModels\\_Unfinished\\Clothing Kit _ Fantasy\\Modular Character Outfits - Fantasy\\Modular Character Outfits - Fantasy[Source]\\Ranger\\Base Chars\\T_Regular_Male_Roughness.png
