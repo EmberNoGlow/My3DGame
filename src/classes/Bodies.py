@@ -65,7 +65,7 @@ class CharacterBody(SceneObject):
         self.run_speed = 10.0
         self.jump_force = 8.0
         self.current_speed = self.walk_speed
-        self.velocity = Vec3(0.0,0.0,0.0)
+        self.velocity = vec3(0.0,0.0,0.0)
         self.gravity = 9.81
 
         # Setup input handling and update task
@@ -134,21 +134,19 @@ class CharacterBody(SceneObject):
         if move_dir.length() > 0:
             self.target_rotation_y = np.rad2deg( np.arctan2(-move_dir.x, move_dir.z) )
             move_dir = move_dir.normalize()
-            # Convert to Panda coordinates. Based on set_position_vec3 you used (x, z, y),
-            # convert vec3(x,y,z) -> Panda Vec3(x, z, y). Adjust if your vec3 has different axes.
-            panda_move = Vec3(move_dir.x, move_dir.z, move_dir.y) * (self.current_speed * dt * self.delta_speed)
-            # setLinearMovement stores movement for the next physics step
-            self.controller_node.node().setLinearMovement(panda_move, True)
+            self.velocity.x = move_dir.x * (self.current_speed)
+            self.velocity.z = move_dir.z * (self.current_speed)
         else:
-            # stop horizontal movement (optional)
-            self.controller_node.node().setLinearMovement(Vec3(0, 0, 0), True)
+            self.velocity.x = 0
+            self.velocity.z = 0
 
+        self.velocity.y -= self.gravity * dt
         # Jump (Panda uses Z-up so z component is vertical)
         if self.accepted_keys['jump'] and self.controller_node.node().isOnGround():
-            jump_vec = Vec3(0, 0, self.jump_force)
-            self.controller_node.node().setLinearMovement(jump_vec, True)
+            self.velocity.y = self.jump_force
 
-        self.controller_node.node().setGravity(self.gravity)
+        vel_vector = Vec3( self.velocity.x, self.velocity.z, self.velocity.y )
+        self.controller_node.node().setLinearMovement(vel_vector, True)
         self.world.doPhysics(dt, 10, 1.0/180.0)
 
         self.current_rotation_y = smooth_rot

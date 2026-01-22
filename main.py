@@ -52,7 +52,7 @@ class MyApp(ShowBase):
         self.environment()
 
         floor = StaticBody( world=self.world, render=self.render, position=vec3(0,-4, 0), 
-                           size=vec3(4, 2, 4), # width, depth, height 
+                           size=vec3(40, 2, 40), # width, depth, height 
                            rotation=vec3(0, 0, 0), shape="box" )
 
 
