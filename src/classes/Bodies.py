@@ -1,8 +1,14 @@
-
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import NodePath, Vec4, Vec3, DirectionalLight, AmbientLight, CollisionNode, CollisionSphere, CollisionTraverser, CollisionHandlerPusher, BitMask32
+from panda3d.core import NodePath, Vec4, Vec3, DirectionalLight, AmbientLight, BitMask32
 from direct.showbase.ShowBaseGlobal import globalClock
-from panda3d.bullet import BulletCharacterControllerNode, BulletWorld, BulletCapsuleShape
+from panda3d.bullet import (
+    BulletCharacterControllerNode,
+    BulletWorld,
+    BulletCapsuleShape,
+    BulletRigidBodyNode,
+    BulletBoxShape,
+    BulletPlaneShape,
+)
 from direct.task import Task
 from src.classes.Math import vec3, lerp_angle
 from src.classes.Nodes import SceneObject
@@ -60,7 +66,7 @@ class CharacterBody(SceneObject):
         self.jump_force = 8.0
         self.current_speed = self.walk_speed
         self.velocity = Vec3(0.0,0.0,0.0)
-        self.gravity = -9.81
+        self.gravity = 9.81
 
         # Setup input handling and update task
         self.setup_input()
@@ -142,7 +148,7 @@ class CharacterBody(SceneObject):
             jump_vec = Vec3(0, 0, self.jump_force)
             self.controller_node.node().setLinearMovement(jump_vec, True)
 
-        self.controller_node.node().setGravity(0)
+        self.controller_node.node().setGravity(self.gravity)
         self.world.doPhysics(dt, 10, 1.0/180.0)
 
         self.current_rotation_y = smooth_rot
@@ -180,13 +186,74 @@ class CharacterBody(SceneObject):
 
 
 
-class StaticBody:
-    def __init__(self, position, size):
-        self.position = position
+class StaticBody(SceneObject):
+    def __init__(
+        self,
+        world: BulletWorld,
+        render: NodePath,
+        position: vec3,
+        size: vec3 = vec3(1, 1, 1),
+        rotation: vec3 = vec3(0, 0, 0),
+        shape: str = "box",
+        collide_mask: BitMask32 = BitMask32.allOn(),
+    ):
+        # Create the Bullet node depending on shape
+        if shape == "box":
+            # Convert size (full extents) from project vec3 to Panda half-extents
+            half_extents = Vec3(size.x / 2.0, size.z / 2.0, size.y / 2.0)
+            bullet_shape = BulletBoxShape(half_extents)
+            node = BulletRigidBodyNode("static_box")
+            node.setMass(0.0)  # mass 0 -> static
+            node.addShape(bullet_shape)
+        elif shape == "plane":
+            # plane shape: orientation depends on rotation; plane normal is +Z by default in BulletPlaneShape
+            # For flexibility we still attach a rigid node and keep it static.
+            bullet_shape = BulletPlaneShape(Vec3(0, 0, 1), 0)  # default horizontal plane at origin
+            node = BulletRigidBodyNode("static_plane")
+            node.setMass(0.0)
+            node.addShape(bullet_shape)
+        else:
+            raise ValueError("Unsupported shape for StaticBody: must be 'box' or 'plane'")
+
+        # Attach node into scene graph under render so transforms can be applied
+        node_path = render.attachNewNode(node)
+        # Set position using the same converter used elsewhere: (x, z, y)
+        node_path.setPos(position.x, position.z, position.y)
+        # set HPR: SceneObject.set_rotation_vec3 expects rot vec3 where .y -> H, .x -> P, .z -> R
+        # We can use the SceneObject method after calling super().__init__
+        super().__init__(node_path)
+        self.set_rotation_vec3(rotation)
+
+        # collision mask
+        node_path.setCollideMask(collide_mask)
+
+        # store references
+        self.world = world
+        self.bullet_node = node
+        self.node_path = node_path
+        self.shape = shape
         self.size = size
-        
-    def get_position(self):
-        return self.position
-        
-    def get_size(self):
+
+        # add to physics world
+        self.world.attachRigidBody(self.bullet_node)
+
+    def cleanup(self):
+        # Remove from physics world and scenegraph
+        try:
+            self.world.removeRigidBody(self.bullet_node)
+        except Exception:
+            pass
+
+        try:
+            if not self.isEmpty():
+                self.removeNode()
+        except Exception:
+            pass
+
+    def get_position(self) -> vec3:
+        p = self.node_path.getPos()
+        # Convert back to project vec3: Panda (x,y,z) -> project (x, z, y)
+        return vec3(p.x, p.z, p.y)
+
+    def get_size(self) -> vec3:
         return self.size

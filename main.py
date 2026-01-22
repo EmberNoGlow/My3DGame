@@ -10,7 +10,7 @@ import numpy as np
 
 # Nodes
 from src.classes.Nodes import *
-from src.classes.Bodies import CharacterBody
+from src.classes.Bodies import *
 
 player_position = vec3(0.0,0.0,0.0)
 
@@ -25,10 +25,10 @@ class MyApp(ShowBase):
         cube_mesh = mesh(self.loader, "assets/models/boxes/box.obj")
         instance1 = cube_mesh.create_instance(
             parent_node=self.render,
-            position= vec3(0,0,0),
-            rotation= vec3(0,45,0)
+            position= vec3(0,-2.25,0),
+            rotation= vec3(0,0,0)
         )
-
+        instance1.set_scale_vec3(vec3(2.5,0.2,2.5))
 
         # Setup physics world
         self.world = BulletWorld()
@@ -41,7 +41,7 @@ class MyApp(ShowBase):
         )
 
         # Position character
-        self.character.set_position_vec3(vec3(0, -2, 0))
+        self.character.set_position_vec3(vec3(0, 2, 0))
         self.character.set_scale_vec3(vec3(2,2,2))
 
 
@@ -50,6 +50,12 @@ class MyApp(ShowBase):
         self.camera.lookAt(0, 0, 0)
 
         self.environment()
+
+        floor = StaticBody( world=self.world, render=self.render, position=vec3(0,-4, 0), 
+                           size=vec3(4, 2, 4), # width, depth, height 
+                           rotation=vec3(0, 0, 0), shape="box" )
+
+
 
     def environment(self):
         render=self.render

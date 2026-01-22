@@ -27,6 +27,15 @@ class SceneObject(NodePath):
         h, p, r = self.getHpr()
         return vec3(p, h, r)
 
+
+    def set_scale_vec3(self, scale: vec3):
+        self.setScale(scale.x, scale.z, scale.y)
+
+    def get_scale_vec3(self, scale: vec3):
+        x,y,z = self.getScale()
+        return vec3(x,z,y)
+
+
     def cleanup(self):
         # Safely removes the node from the scene graph.
         if not self.isEmpty():
